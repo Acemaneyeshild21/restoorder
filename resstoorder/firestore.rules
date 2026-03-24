@@ -1,0 +1,114 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email in ["dimitriaceman614@gmail.com", "milo@gmail.com"] && request.auth.token.email_verified == true));
+    }
+
+    function isStaff() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'cuisine', 'livreur'] ||
+          (request.auth.token.email in ["dimitriaceman614@gmail.com", "milo@gmail.com"] && request.auth.token.email_verified == true));
+    }
+
+    function hasOnlyAllowedFields(allowedFields) {
+      return request.resource.data.keys().hasOnly(allowedFields);
+    }
+
+    function isValidString(field, minLen, maxLen) {
+      return field is string && field.size() >= minLen && field.size() <= maxLen;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    
+    function isValidCategory() {
+      return hasOnlyAllowedFields(['name', 'sort_order']) &&
+             isValidString(request.resource.data.name, 1, 100) &&
+             request.resource.data.sort_order is number;
+    }
+
+    function isValidMenuItem() {
+      return hasOnlyAllowedFields(['name', 'description', 'price', 'image', 'categoryId', 'isAvailable', 'stock', 'allergens', 'components', 'customizations']) &&
+             isValidString(request.resource.data.name, 1, 100) &&
+             (!('description' in request.resource.data) || request.resource.data.description == null || isValidString(request.resource.data.description, 0, 1000)) &&
+             request.resource.data.price is number && request.resource.data.price >= 0 &&
+             (!('image' in request.resource.data) || request.resource.data.image == null || isValidString(request.resource.data.image, 0, 1000)) &&
+             isValidString(request.resource.data.categoryId, 1, 100) &&
+             request.resource.data.isAvailable is bool &&
+             (!('stock' in request.resource.data) || request.resource.data.stock == null || request.resource.data.stock is number) &&
+             (!('allergens' in request.resource.data) || request.resource.data.allergens == null || request.resource.data.allergens is list) &&
+             (!('components' in request.resource.data) || request.resource.data.components == null || request.resource.data.components is list) &&
+             (!('customizations' in request.resource.data) || request.resource.data.customizations == null || request.resource.data.customizations is list);
+    }
+
+    function isValidOrder() {
+      return hasOnlyAllowedFields(['customerName', 'items', 'total', 'status', 'time', 'createdAt', 'type', 'userId', 'deliveryAddress', 'loyaltyPointsEarned']) &&
+             isValidString(request.resource.data.customerName, 1, 100) &&
+             request.resource.data.items is list &&
+             request.resource.data.total is number && request.resource.data.total >= 0 &&
+             request.resource.data.status in ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'] &&
+             (!('time' in request.resource.data) || request.resource.data.time == null || isValidString(request.resource.data.time, 1, 100)) &&
+             isValidString(request.resource.data.createdAt, 1, 100) &&
+             request.resource.data.type in ['pickup', 'delivery', 'dine_in'] &&
+             isValidString(request.resource.data.userId, 1, 100) &&
+             (!('deliveryAddress' in request.resource.data) || request.resource.data.deliveryAddress == null || isValidString(request.resource.data.deliveryAddress, 0, 500)) &&
+             (!('loyaltyPointsEarned' in request.resource.data) || request.resource.data.loyaltyPointsEarned is number);
+    }
+
+    function isValidUser() {
+      return hasOnlyAllowedFields(['first_name', 'last_name', 'email', 'phone', 'role', 'points', 'loyaltyHistory']) &&
+             (!('first_name' in request.resource.data) || request.resource.data.first_name == null || isValidString(request.resource.data.first_name, 0, 100)) &&
+             (!('last_name' in request.resource.data) || request.resource.data.last_name == null || isValidString(request.resource.data.last_name, 0, 100)) &&
+             isValidString(request.resource.data.email, 5, 100) &&
+             (!('phone' in request.resource.data) || request.resource.data.phone == null || isValidString(request.resource.data.phone, 0, 20)) &&
+             request.resource.data.role in ['client', 'admin', 'cuisine', 'livreur'] &&
+             (!('points' in request.resource.data) || request.resource.data.points is number) &&
+             (!('loyaltyHistory' in request.resource.data) || request.resource.data.loyaltyHistory is list);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin() && (request.method == 'delete' || isValidCategory());
+    }
+
+    match /menu_items/{itemId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin() && (request.method == 'delete' || isValidMenuItem());
+    }
+
+    match /orders/{orderId} {
+      allow read: if isOwner(resource.data.userId) || resource.data.userId == 'anonymous' || isStaff();
+      allow create: if (isOwner(request.resource.data.userId) || request.resource.data.userId == 'anonymous') && isValidOrder();
+      allow update: if isStaff() && isValidOrder() && request.resource.data.userId == resource.data.userId;
+      allow delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isStaff();
+      allow create: if (isOwner(userId) && isValidUser() && request.resource.data.role == 'client') || (isAdmin() && isValidUser());
+      allow update: if (isOwner(userId) && isValidUser() && request.resource.data.role == resource.data.role) || (isAdmin() && isValidUser());
+      allow delete: if isAdmin();
+    }
+  }
+}

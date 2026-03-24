@@ -1,0 +1,157 @@
+{
+  "entities": {
+    "Category": {
+      "title": "Category",
+      "description": "Menu category",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the category"
+        },
+        "sort_order": {
+          "type": "number",
+          "description": "Order of the category"
+        }
+      },
+      "required": ["name", "sort_order"]
+    },
+    "MenuItem": {
+      "title": "MenuItem",
+      "description": "A dish or item on the menu",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the dish"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the dish"
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the dish"
+        },
+        "image_url": {
+          "type": "string",
+          "description": "URL of the image"
+        },
+        "category_id": {
+          "type": "string",
+          "description": "ID of the category this item belongs to"
+        },
+        "is_available": {
+          "type": "boolean",
+          "description": "Whether the item is currently available"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tags like allergens or dietary info"
+        }
+      },
+      "required": ["name", "price", "category_id", "is_available"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer order",
+      "type": "object",
+      "properties": {
+        "customerName": {
+          "type": "string",
+          "description": "Name of the customer"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "quantity": { "type": "number" },
+              "price": { "type": "number" }
+            }
+          },
+          "description": "Items in the order"
+        },
+        "total": {
+          "type": "number",
+          "description": "Total amount of the order"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "confirmed", "preparing", "ready", "delivered", "cancelled"],
+          "description": "Current status of the order"
+        },
+        "time": {
+          "type": "string",
+          "description": "Time of the order"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp (ISO string)"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["pickup", "delivery", "dine_in"],
+          "description": "Type of order"
+        },
+        "userId": {
+          "type": "string",
+          "description": "ID of the user who placed the order"
+        }
+      },
+      "required": ["customerName", "items", "total", "status", "createdAt", "type", "userId"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "first_name": {
+          "type": "string",
+          "description": "User's first name"
+        },
+        "last_name": {
+          "type": "string",
+          "description": "User's last name"
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address"
+        },
+        "phone": {
+          "type": "string",
+          "description": "User's phone number"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["client", "admin", "cuisine", "livreur"],
+          "description": "User's role"
+        }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "categories": {
+      "schema": "Category",
+      "description": "Menu categories"
+    },
+    "menu_items": {
+      "schema": "MenuItem",
+      "description": "Menu items"
+    },
+    "orders": {
+      "schema": "Order",
+      "description": "Customer orders"
+    },
+    "users": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    }
+  }
+}
